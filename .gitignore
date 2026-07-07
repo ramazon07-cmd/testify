@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+*.sqlite3
+.env
+.venv/
+media/
+staticfiles/
+
+# Node
+node_modules/
+.next/
+out/
+.env.local
+npm-debug.log*
+
+# OS
+.DS_Store

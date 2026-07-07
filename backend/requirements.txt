@@ -1,0 +1,11 @@
+Django>=5.2,<5.3
+djangorestframework>=3.15,<4
+djangorestframework-simplejwt>=5.3,<6
+django-cors-headers>=4.4,<5
+drf-spectacular>=0.28,<1
+pypdf>=5,<7
+python-dotenv>=1,<2
+openai>=1.60,<3
+Pillow>=10,<12
+whitenoise>=6.6,<7
+dj-database-url>=2.2,<3
