@@ -1,7 +1,127 @@
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Attempt, Choice, Question, Quiz, SourceDocument
+from .models import Attempt, Choice, Question, Quiz, SourceDocument, Student, StudentGroup
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = ('id', 'group', 'name', 'parent_phone', 'created_at')
+        read_only_fields = ('id', 'created_at')
+
+    def validate_group(self, group):
+        if group.owner_id != self.context['request'].user.id:
+            raise serializers.ValidationError('Bu guruh sizga tegishli emas.')
+        return group
+
+    def validate(self, attrs):
+        group = attrs.get('group', getattr(self.instance, 'group', None))
+        name = attrs.get('name', getattr(self.instance, 'name', '')).strip()
+        queryset = Student.objects.filter(group=group, name__iexact=name)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError({'name': 'Bu o‘quvchi shu guruhda allaqachon bor.'})
+        attrs['name'] = name
+        return attrs
+
+
+class StudentGroupSerializer(serializers.ModelSerializer):
+    student_count = serializers.IntegerField(source='students.count', read_only=True)
+
+    class Meta:
+        model = StudentGroup
+        fields = ('id', 'name', 'student_count', 'created_at')
+        read_only_fields = ('id', 'student_count', 'created_at')
+
+    def validate_name(self, value):
+        request = self.context.get('request')
+        queryset = StudentGroup.objects.filter(owner=request.user, name__iexact=value.strip()) if request else StudentGroup.objects.none()
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError('Bu nomdagi guruh mavjud.')
+        return value.strip()
+
+
+class BulkStudentSerializer(serializers.Serializer):
+    group = serializers.PrimaryKeyRelatedField(queryset=StudentGroup.objects.all())
+    rows = serializers.CharField(max_length=30000)
+
+    def validate_group(self, group):
+        if group.owner_id != self.context['request'].user.id:
+            raise serializers.ValidationError('Bu guruh sizga tegishli emas.')
+        return group
+
+    def validate_rows(self, value):
+        rows = [row.strip() for row in value.splitlines() if row.strip()]
+        if not rows:
+            raise serializers.ValidationError('Kamida bitta o‘quvchi kiriting.')
+        if len(rows) > 300:
+            raise serializers.ValidationError('Bir urinishda 300 tagacha o‘quvchi qo‘shish mumkin.')
+        return rows
+
+    def create(self, validated_data):
+        group = validated_data['group']
+        owner = self.context['request'].user
+        existing_names = {
+            name.casefold()
+            for name in group.students.values_list('name', flat=True)
+        }
+        students = []
+        skipped = []
+
+        for row in validated_data['rows']:
+            name, separator, phone = row.partition(',')
+            name = name.strip()
+            phone = phone.strip() if separator else ''
+            if not name or name.casefold() in existing_names:
+                skipped.append(name or row)
+                continue
+            existing_names.add(name.casefold())
+            students.append(Student(owner=owner, group=group, name=name, parent_phone=phone))
+
+        created = Student.objects.bulk_create(students)
+        return {
+            'created_count': len(created),
+            'skipped_count': len(skipped),
+            'skipped': skipped,
+            'students': StudentSerializer(created, many=True).data,
+        }
+
+
+class PaperAttemptSerializer(serializers.Serializer):
+    student_name = serializers.CharField(max_length=150)
+    answers = serializers.CharField(max_length=350)
+
+
+class AnswerKeyQuizSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=200)
+    answer_key = serializers.CharField(max_length=900)
+    scoring_scheme = serializers.ChoiceField(choices=Quiz.ScoringScheme.choices, default=Quiz.ScoringScheme.STANDARD)
+    group = serializers.PrimaryKeyRelatedField(queryset=StudentGroup.objects.all(), required=False, allow_null=True)
+
+    def validate_group(self, group):
+        if group and group.owner_id != self.context['request'].user.id:
+            raise serializers.ValidationError('Bu guruh sizga tegishli emas.')
+        return group
+
+    def validate(self, attrs):
+        import re
+
+        raw_key = attrs['answer_key'].strip().upper()
+        if not re.fullmatch(r'[A-E0-9\s,;:\-.)]+', raw_key):
+            raise serializers.ValidationError({'answer_key': 'Faqat A–E harflari va ajratuvchi belgilarni kiriting.'})
+        key = ''.join(re.findall(r'[A-E]', raw_key))
+        if not key:
+            raise serializers.ValidationError({'answer_key': 'Kamida bitta javob kiriting.'})
+        if len(key) > 350:
+            raise serializers.ValidationError({'answer_key': 'Javoblar soni 350 tadan oshmasin.'})
+        if attrs['scoring_scheme'] == Quiz.ScoringScheme.DTM_189 and len(key) != 90:
+            raise serializers.ValidationError({'answer_key': 'DTM 90/189 shabloni uchun aynan 90 ta javob kerak.'})
+        attrs['normalized_key'] = key
+        return attrs
 
 
 class ChoiceSerializer(serializers.ModelSerializer):
@@ -48,14 +168,18 @@ class QuestionSerializer(serializers.ModelSerializer):
 class QuizListSerializer(serializers.ModelSerializer):
     question_count = serializers.IntegerField(source='questions.count', read_only=True)
     attempt_count = serializers.IntegerField(source='attempts.count', read_only=True)
+    group_name = serializers.CharField(source='group.name', read_only=True, allow_null=True)
 
     class Meta:
         model = Quiz
         fields = (
             'id',
+            'group',
+            'group_name',
             'title',
             'description',
             'status',
+            'scoring_scheme',
             'share_code',
             'duration_minutes',
             'shuffle_questions',
@@ -72,11 +196,19 @@ class QuizListSerializer(serializers.ModelSerializer):
         read_only_fields = ('share_code', 'status', 'created_at', 'updated_at')
 
     def validate(self, attrs):
+        group = attrs.get('group', getattr(self.instance, 'group', None))
+        request = self.context.get('request')
+        if group and request and group.owner_id != request.user.id:
+            raise serializers.ValidationError({'group': 'Bu guruh sizga tegishli emas.'})
         starts_at = attrs.get('starts_at', getattr(self.instance, 'starts_at', None))
         ends_at = attrs.get('ends_at', getattr(self.instance, 'ends_at', None))
 
         if starts_at and ends_at and starts_at >= ends_at:
             raise serializers.ValidationError('Boshlanish vaqti tugash vaqtidan oldin bo‘lishi kerak.')
+
+        duration = attrs.get('duration_minutes', getattr(self.instance, 'duration_minutes', 20))
+        if duration > 360:
+            raise serializers.ValidationError({'duration_minutes': 'Test davomiyligi 360 daqiqadan oshmasin.'})
 
         return attrs
 
@@ -96,7 +228,7 @@ class ImportPDFSerializer(serializers.Serializer):
         required=False,
         default=SourceDocument.Mode.AUTO,
     )
-    question_count = serializers.IntegerField(min_value=1, max_value=50, required=False, default=10)
+    question_count = serializers.IntegerField(min_value=1, max_value=350, required=False, default=20)
 
     def validate_file(self, uploaded):
         from django.conf import settings

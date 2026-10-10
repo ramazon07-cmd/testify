@@ -1,6 +1,7 @@
 import secrets
 import string
 from datetime import timedelta
+from decimal import Decimal
 
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator
@@ -19,10 +20,16 @@ class Quiz(models.Model):
         PUBLISHED = 'published', 'Published'
         CLOSED = 'closed', 'Closed'
 
+    class ScoringScheme(models.TextChoices):
+        STANDARD = 'standard', 'Standard'
+        DTM_189 = 'dtm_189', 'DTM 90 / 189'
+
     owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quizzes')
+    group = models.ForeignKey('StudentGroup', on_delete=models.SET_NULL, null=True, blank=True, related_name='quizzes')
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+    scoring_scheme = models.CharField(max_length=20, choices=ScoringScheme.choices, default=ScoringScheme.STANDARD)
     share_code = models.CharField(max_length=12, unique=True, default=generate_share_code, editable=False)
     duration_minutes = models.PositiveIntegerField(default=20, validators=[MinValueValidator(1)])
     shuffle_questions = models.BooleanField(default=False)
@@ -86,7 +93,7 @@ class Question(models.Model):
     section_title = models.CharField(max_length=200, blank=True)
     explanation = models.TextField(blank=True)
     order = models.PositiveIntegerField(default=0)
-    points = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    points = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('1.00'), validators=[MinValueValidator(Decimal('0.01'))])
 
     class Meta:
         ordering = ['order', 'id']
@@ -110,9 +117,10 @@ class Choice(models.Model):
 
 class Attempt(models.Model):
     quiz = models.ForeignKey(Quiz, on_delete=models.CASCADE, related_name='attempts')
+    student = models.ForeignKey('Student', on_delete=models.SET_NULL, null=True, blank=True, related_name='attempts')
     student_name = models.CharField(max_length=150)
-    score = models.PositiveIntegerField(default=0)
-    max_score = models.PositiveIntegerField(default=0)
+    score = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.00'))
+    max_score = models.DecimalField(max_digits=8, decimal_places=2, default=Decimal('0.00'))
     percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     started_at = models.DateTimeField(auto_now_add=True)
     submitted_at = models.DateTimeField(null=True, blank=True)
@@ -137,9 +145,36 @@ class AttemptAnswer(models.Model):
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
     selected_choice = models.ForeignKey(Choice, on_delete=models.SET_NULL, null=True, blank=True)
     is_correct = models.BooleanField(default=False)
-    awarded_points = models.PositiveIntegerField(default=0)
+    awarded_points = models.DecimalField(max_digits=6, decimal_places=2, default=Decimal('0.00'))
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=['attempt', 'question'], name='unique_attempt_question')
         ]
+
+
+class StudentGroup(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='student_groups')
+    name = models.CharField(max_length=120)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name', 'id']
+        constraints = [models.UniqueConstraint(fields=['owner', 'name'], name='unique_owner_group_name')]
+
+    def __str__(self):
+        return self.name
+
+
+class Student(models.Model):
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='students')
+    group = models.ForeignKey(StudentGroup, on_delete=models.CASCADE, related_name='students')
+    name = models.CharField(max_length=150)
+    parent_phone = models.CharField(max_length=30, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name', 'id']
+
+    def __str__(self):
+        return self.name

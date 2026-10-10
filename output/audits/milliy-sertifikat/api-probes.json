@@ -1,0 +1,37 @@
+[
+  {
+    "subject": "history",
+    "requested_questions": 45,
+    "status": 400,
+    "response": {
+      "detail": "PDF ichida faqat 33 ta yaroqli savol topildi. 45 ta so‘ralgan edi."
+    }
+  },
+  {
+    "subject": "math",
+    "requested_questions": 45,
+    "status": 400,
+    "response": {
+      "detail": "PDF ichida faqat 33 ta yaroqli savol topildi. 45 ta so‘ralgan edi."
+    }
+  },
+  {
+    "subject": "uzbek",
+    "requested_questions": 45,
+    "status": 400,
+    "response": {
+      "detail": "PDF ichida faqat 32 ta yaroqli savol topildi. 45 ta so‘ralgan edi."
+    }
+  },
+  {
+    "scenario": "open_answer",
+    "status": 400,
+    "response": [
+      {
+        "choices": [
+          "Kamida 2 ta variant kerak."
+        ]
+      }
+    ]
+  }
+]

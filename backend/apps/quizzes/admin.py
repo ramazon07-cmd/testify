@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Attempt, AttemptAnswer, Choice, Question, Quiz, SourceDocument
+from .models import Attempt, AttemptAnswer, Choice, Question, Quiz, SourceDocument, Student, StudentGroup
 
 
 class ChoiceInline(admin.TabularInline):
@@ -40,3 +40,5 @@ class AttemptAdmin(admin.ModelAdmin):
 
 
 admin.site.register(AttemptAnswer)
+admin.site.register(StudentGroup)
+admin.site.register(Student)

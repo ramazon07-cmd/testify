@@ -1,15 +1,25 @@
-# Testify Platform — Ready MVP
+# Testify — o‘quv markazlari uchun sinov operatsiyalari
 
-PDF fayllarni interaktiv online testlarga aylantiradigan full-stack MVP.
+Qog‘oz va online mock testlarni bitta oqimda boshqaradigan full-stack MVP: javob kaliti/PDF import, DTM scoring, guruh reytingi va ota-ona hisobotlari.
 
 ## Nimalar tuzatildi
 
+- Javob kalitidan PDF’siz tezkor sinov yaratish oqimi qo‘shildi.
+- DTM 90 savol / 189 ball shabloni (`1.1 / 3.1 / 2.1`) qo‘shildi.
+- Guruhlar, o‘quvchilar va ota-ona telefonlari boshqaruvi qo‘shildi.
+- Qog‘oz javoblarini A/B/C/D/E ketma-ketligi bilan tekshirish qo‘shildi.
+- Guruh reytingi, savollar kesimidagi qiyinlik va Telegram uchun ota-ona hisoboti qo‘shildi.
+- A4 formatidagi chop etiladigan javob varaqasi qo‘shildi.
 - `show_score=False` bo‘lsa, o‘quvchiga ball/javoblar ko‘rinmaydi.
 - Test vaqti backend tarafda tekshiriladi: public test start endpoint + attempt id.
 - Frontendda access token tugasa refresh token orqali avtomatik yangilanadi.
 - Results CSV export qo‘shildi.
 - Import input validation yaxshilandi (`question_count`, `mode`, PDF size/type).
 - Quiz settings UI: duration, shuffle, show/hide score, one attempt.
+- 90 savolli test uchun savol navigatori, progress, refreshdan tiklanish va vaqt tugaganda avtomatik topshirish qo‘shildi.
+- Guruh/o‘quvchi tahrirlash, o‘chirish va `Ism, telefon` formatida ommaviy import qo‘shildi.
+- Sinov nomi, tavsifi, guruhi va boshlanish/tugash vaqtini editordan boshqarish qo‘shildi.
+- 404, umumiy xato, maxfiylik va foydalanish shartlari sahifalari qo‘shildi.
 - Production settings: env-based DB, CORS, secure cookies, WhiteNoise.
 - Demo seed command va PDF parser unit testlari qo‘shildi.
 
@@ -99,7 +109,7 @@ AI kaliti bo‘lmasa ham tayyor test PDF importi ishlaydi.
 
 ## Muhim cheklov
 
-Hozirgi MVP skanerlangan rasmdan iborat PDF uchun OCR qilmaydi. Bunday faylga keyingi bosqichda Tesseract yoki cloud OCR qo‘shiladi.
+Hozirgi MVP skanerlangan rasmdan iborat PDF va telefon fotosidan avtomatik OMR o‘qishni hali bajarmaydi. Hozir qog‘oz javoblari tezkor matn oqimi orqali kiritiladi; vision OCR/OMR keyingi bosqich.
 
 ## Tekshirish
 

@@ -1,0 +1,8 @@
+{
+  "operation": "save unchanged published quiz questions",
+  "http_status": 200,
+  "answer_rows_before": 3,
+  "answer_rows_after": 0,
+  "retained_attempt_score": "2.00",
+  "rolled_back": true
+}

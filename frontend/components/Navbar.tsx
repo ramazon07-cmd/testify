@@ -19,17 +19,28 @@ export default function Navbar() {
     router.refresh();
   }
 
+  const isDashboard = pathname.startsWith("/dashboard");
+
+  if (pathname.startsWith("/quiz/")) return null;
+
   return (
-    <header className="navbar">
+    <header className={`navbar ${pathname === "/" ? "landing-navbar" : authed ? "app-navbar" : ""}`}>
       <div className="container nav-inner">
-        <Link href="/" className="brand"><span className="brand-mark">T</span>Testify</Link>
+        <div className="nav-brand-group">
+          <Link href="/" className="brand"><span className="brand-mark">T</span><span>Testify</span></Link>
+          {pathname === "/" && <span className="brand-status"><i /> Beta</span>}
+          {authed && pathname !== "/" && <span className="app-product-label"><i /> Markaz paneli</span>}
+        </div>
         <nav className="nav-links">
+          {pathname === "/" && <div className="nav-anchor-links"><a href="#how-it-works">Qanday ishlaydi</a><a href="#features">Imkoniyatlar</a></div>}
           {authed ? <>
-            <Link href="/dashboard">Dashboard</Link>
-            <button className="link-button" onClick={logout}>Chiqish</button>
+            <Link href="/dashboard/new" className="nav-create"><span aria-hidden="true">＋</span><b>Yangi sinov</b></Link>
+            <Link href="/dashboard" aria-current={isDashboard ? "page" : undefined} className={`nav-dashboard ${isDashboard ? "active" : ""}`}><span className="dashboard-glyph" aria-hidden="true"><i /><i /><i /><i /></span><span className="nav-dashboard-copy"><strong>Panel</strong><small>Boshqaruv</small></span></Link>
+            <span className="nav-divider" aria-hidden="true" />
+            <button className="nav-logout" onClick={logout}><span>Chiqish</span><b aria-hidden="true">↗</b></button>
           </> : <>
-            <Link href="/login">Kirish</Link>
-            <Link href="/register" className="button small">Boshlash</Link>
+            <Link href="/login" className="nav-login">Kirish</Link>
+            <Link href="/register" className="button small nav-cta">Boshlash <span>↗</span></Link>
           </>}
         </nav>
       </div>

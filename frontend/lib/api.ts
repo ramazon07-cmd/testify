@@ -13,6 +13,15 @@ export class ApiError extends Error {
   }
 }
 
+function errorMessage(data: unknown): string {
+  if (!data || typeof data !== "object") return "Server xatoligi yuz berdi.";
+  if ("detail" in data) return String((data as { detail: unknown }).detail);
+  const first = Object.values(data as Record<string, unknown>)[0];
+  if (Array.isArray(first) && first.length) return String(first[0]);
+  if (typeof first === "string") return first;
+  return "Kiritilgan ma’lumotlarni tekshiring.";
+}
+
 async function refreshAccessToken(): Promise<boolean> {
   const refresh = getRefreshToken();
   if (!refresh) return false;
@@ -54,10 +63,23 @@ export async function api<T>(path: string, options: RequestInit = {}, retry = tr
   const contentType = response.headers.get("content-type") || "";
   const data = contentType.includes("application/json") ? await response.json().catch(() => ({})) : await response.text();
   if (!response.ok) {
-    const message = typeof data === "object" && data && "detail" in data ? String((data as { detail: unknown }).detail) : "Server xatoligi yuz berdi.";
+    const message = errorMessage(data);
     throw new ApiError(message, response.status, data);
   }
   return data as T;
+}
+
+export async function apiAll<T>(path: string): Promise<T[]> {
+  const rows: T[] = [];
+  let next: string | null = path;
+
+  while (next) {
+    const page: { results: T[]; next: string | null } = await api(next);
+    rows.push(...page.results);
+    next = page.next ? page.next.replace(API_URL, "") : null;
+  }
+
+  return rows;
 }
 
 export async function downloadWithAuth(path: string, filename: string) {
